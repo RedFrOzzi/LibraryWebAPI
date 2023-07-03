@@ -2,8 +2,6 @@
 using LibraryWebAPI.Models;
 using LibraryWebAPI.Repository.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using System.Net;
 
 namespace LibraryWebAPI.Repository.Implementation
 {
@@ -16,15 +14,8 @@ namespace LibraryWebAPI.Repository.Implementation
             _context = context;
         }
 
-        public bool CreateBookStack(string title)
+        public bool CreateBookStack(BookStack bookStack)
         {
-            if (_context.BookStacks.Where(bs => bs.Title.Contains(title)).Any())
-            {
-                return false;
-            }
-
-            var bookStack = new BookStack { Title = title };
-
             _context.BookStacks.Add(bookStack);
 
             return Save();
@@ -32,63 +23,39 @@ namespace LibraryWebAPI.Repository.Implementation
 
         public ICollection<BookStack> GetBookStacks()
         {
-            return _context.BookStacks.ToList();
+            return _context.BookStacks.Include(bs => bs.Books).ToList();
         }
 
         public BookStack GetBookStack(int id)
         {
-            return _context.BookStacks.Where(x => x.Id == id).SingleOrDefault();
+            return _context.BookStacks.Where(x => x.Id == id).Include(x => x.Books).SingleOrDefault()!;
         }
 
-        public ICollection<BookStack> GetBookStacksByAuthors(string author)
+        public ICollection<BookStack> GetBookStacksByAuthors(Author author)
         {
             return _context.BookStacks
-                .Where(bs => EF.Functions.Like(bs.Title, $"%{author}%"))
+                .Where(bs => bs.Authors.Contains(author))
                 .ToList();
         }
 
         public ICollection<BookStack> GetBookStacksByTitle(string title)
         {
             return _context.BookStacks
-                .Where(bs => EF.Functions.Like(bs.Title, $"%{title}%"))
+                .Where(bs => bs.Title.Contains(title))
+                .Take(10)
+                .Include(x => x.Books)
                 .ToList();
         }
 
-        public bool AddAuthor(int bookStackId, int authorId)
+        public bool AddAuthor(BookStack bookStack, Author author)
         {
-            var bookStack = _context.BookStacks.Where(bs => bs.Id == bookStackId).FirstOrDefault();
-
-            if (bookStack == null)
-            {
-                return false;
-            }
-
-            var author = _context.Authors.Where(a => a.Id == authorId).FirstOrDefault();
-
-            if (author == null)
-            {
-                return false;
-            }
-
             bookStack.Authors.Add(author);
 
             return Save();
         }
 
-        public bool AddBooks(int bookStackId, int booksAmount)
+        public bool AddBooks(BookStack bookStack, int booksAmount)
         {
-            if (booksAmount <= 0)
-            {
-                return false;
-            }
-
-            var bookStack = _context.BookStacks.Where(bs => bs.Id == bookStackId).FirstOrDefault();
-
-            if (bookStack == null)
-            {
-                return false;
-            }
-
             for (int i = 0; i < booksAmount; i++)
             {
                 bookStack.Books.Add(new Book()
@@ -98,6 +65,23 @@ namespace LibraryWebAPI.Repository.Implementation
             }
 
             return Save();
+        }
+
+        public bool DeleteBookStack(BookStack bookStack)
+        {
+            _context.BookStacks.Remove(bookStack);
+
+            return Save();
+        }
+
+        public bool IsStackExist(string title)
+        {
+            return _context.BookStacks.Where(bs => bs.Title.Contains(title)).Any();
+        }
+
+        public bool IsStackExist(int stackId)
+        {
+            return _context.BookStacks.Where(bs => bs.Id == stackId).Any();
         }
 
         public bool Save()

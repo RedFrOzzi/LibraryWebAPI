@@ -43,9 +43,6 @@ namespace LibraryWebAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("AuthorId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("BookStackId")
                         .HasColumnType("INTEGER");
 
@@ -53,8 +50,6 @@ namespace LibraryWebAPI.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AuthorId");
 
                     b.HasIndex("BookStackId");
 
@@ -102,10 +97,6 @@ namespace LibraryWebAPI.Migrations
 
             modelBuilder.Entity("LibraryWebAPI.Models.Book", b =>
                 {
-                    b.HasOne("LibraryWebAPI.Models.Author", null)
-                        .WithMany("Books")
-                        .HasForeignKey("AuthorId");
-
                     b.HasOne("LibraryWebAPI.Models.BookStack", "BookStack")
                         .WithMany("Books")
                         .HasForeignKey("BookStackId")
@@ -119,11 +110,6 @@ namespace LibraryWebAPI.Migrations
                     b.Navigation("BookStack");
 
                     b.Navigation("CurrentReader");
-                });
-
-            modelBuilder.Entity("LibraryWebAPI.Models.Author", b =>
-                {
-                    b.Navigation("Books");
                 });
 
             modelBuilder.Entity("LibraryWebAPI.Models.BookReader", b =>

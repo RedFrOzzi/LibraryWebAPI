@@ -4,13 +4,15 @@ namespace LibraryWebAPI.Repository.Interfaces
 {
     public interface IBookStackRepository
     {
-        bool CreateBookStack(string title);
-        ICollection<BookStack> GetBookStacks();
+        bool CreateBookStack(BookStack bookStack);
         BookStack GetBookStack(int id);
+        ICollection<BookStack> GetBookStacks();
         ICollection<BookStack> GetBookStacksByTitle(string title);
-        ICollection<BookStack> GetBookStacksByAuthors(string author);
-        bool AddAuthor(int bookStackId, int  authorId);
-        bool AddBooks(int  bookStackId, int booksAmount);
+        bool AddAuthor(BookStack bookStack, Author  author);
+        bool AddBooks(BookStack bookStack, int booksAmount);
+        bool DeleteBookStack(BookStack bookStack);
+        bool IsStackExist(string title);
+        bool IsStackExist(int stackId);
         bool Save();
     }
 }

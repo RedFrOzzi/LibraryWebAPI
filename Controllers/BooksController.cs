@@ -1,107 +1,247 @@
-﻿using LibraryWebAPI.Models;
+﻿using FluentValidation;
+using LibraryWebAPI.Models;
 using LibraryWebAPI.Repository.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
-namespace LibraryWebAPI.Controllers
+namespace LibraryWebAPI.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+public class BooksController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class BooksController : ControllerBase
+    private readonly IBookStackRepository _bookStackRepository;
+    private readonly IAuthorRepository _authorRepository;
+    private readonly IBookRepository _bookRepository;
+    private readonly IValidator<BookStack> _validator;
+
+    public BooksController(
+        IBookStackRepository bookStackRepository,
+        IAuthorRepository authorRepository,
+        IBookRepository bookRepository,
+        IValidator<BookStack> validator)
     {
-        private readonly IBookStackRepository _bookStackRepository;
+        _bookStackRepository = bookStackRepository;
+        _authorRepository = authorRepository;
+        _bookRepository = bookRepository;
+        _validator = validator;
+    }
 
-        public BooksController(IBookStackRepository bookStackRepository)
+    //### GET ###
+
+    [HttpGet("BooksCollection")]
+    [ProducesResponseType(200, Type = typeof(ICollection<BookStack>))]
+    [ProducesResponseType(404)]
+    public IActionResult GetBookStacks()
+    {
+        var bookStacks = _bookStackRepository.GetBookStacks();
+
+        if (bookStacks == null)
         {
-            _bookStackRepository = bookStackRepository;
+            ModelState.AddModelError("Server", "Null collection");
+            return BadRequest(ModelState);
         }
 
-        [HttpGet("books_collection")]
-        [ProducesResponseType(200, Type = typeof(ICollection<BookStack>))]
-        [ProducesResponseType(404)]
-        public IActionResult GetBookStacks()
+        if (bookStacks.Count == 0)
         {
-            var bookStacks = _bookStackRepository.GetBookStacks();
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest();
-            }
-
-            if (bookStacks.Count == 0)
-            {
-                return NotFound();
-            }
-
-            return Ok(bookStacks);
+            return NotFound();
         }
 
-        [HttpGet("title")]
-        [ProducesResponseType(200, Type = typeof(ICollection<BookStack>))]
-        [ProducesResponseType(404)]
-        public IActionResult GetBookStacksByTitle([FromRoute] string title)
+        return Ok(bookStacks);
+    }
+
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(200, Type = typeof(ICollection<BookStack>))]
+    [ProducesResponseType(404)]
+    public IActionResult GetBookStack([FromRoute] int bookStackId)
+    {
+        var bookStacks = _bookStackRepository.GetBookStack(bookStackId);
+
+        if (bookStacks == null)
         {
-            var stacks = _bookStackRepository.GetBookStacksByTitle(title);
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            if (stacks.Count == 0)
-            {
-                return NotFound();
-            }
-
-            return Ok(stacks);
+            return NotFound();
         }
 
-        [HttpPost]
-        [ProducesResponseType(201)]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(500)]
-        public IActionResult CreateBookStack([FromQuery] string title)
+        return Ok(bookStacks);
+    }
+
+    [HttpGet("{title}")]
+    [ProducesResponseType(200, Type = typeof(ICollection<BookStack>))]
+    [ProducesResponseType(404)]
+    public IActionResult GetBookStacksByTitle([FromRoute] string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
         {
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                return BadRequest("No title provided");
-            }
-
-            if (!_bookStackRepository.CreateBookStack(title))
-            {
-                return StatusCode(500);
-            }
-
-            return Ok();
+            ModelState.AddModelError("Title", "Should provide title");
+            return BadRequest(ModelState);
         }
 
-        [HttpPut("update_author/{bookStackId}")]
-        [ProducesResponseType(200)]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(404)]
-        [ProducesResponseType(500)]
-        public IActionResult AddAuthor([FromRoute] int bookStackId, [FromQuery] int authorId)
-        {
-            if (!_bookStackRepository.AddAuthor(bookStackId, authorId))
-            {
-                return BadRequest(500);
-            }
+        var bookStacks = _bookStackRepository.GetBookStacksByTitle(title);
 
-            return Ok();
+        if (bookStacks == null)
+        {
+            ModelState.AddModelError("Server", "Null collection");
+            return BadRequest(ModelState);
         }
 
-        [HttpPut("update_books/{bookStackId}")]
-        [ProducesResponseType(200)]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(404)]
-        [ProducesResponseType(500)]
-        public IActionResult AddBooks([FromRoute] int bookStackId, int bookAmount)
+        if (bookStacks.Count == 0)
         {
-            if (!_bookStackRepository.AddBooks(bookStackId, bookAmount))
-            {
-                return BadRequest(500);
-            }
-
-            return Ok();
+            return NotFound();
         }
+
+        return Ok(bookStacks);
+    }
+
+    [HttpGet("individual_book")]
+    public IActionResult GetIndividualBooks()
+    {
+        var books = _bookRepository.GetBooks();
+
+        if (books.Count == 0)
+        {
+            return NotFound();
+        }
+
+        return Ok(books);
+    }
+
+    [HttpGet("individual_book/{bookId:int}")]
+    public IActionResult GetIndividualBook([FromRoute] int bookId)
+    {
+        var book = _bookRepository.GetBook(bookId);
+
+        if (book == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(book);
+    }
+
+    //### POST ####
+
+    [HttpPost]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(500)]
+    public IActionResult CreateBookStack([FromQuery] string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            ModelState.AddModelError("Title", "Should provide title");
+            return BadRequest(ModelState);
+        }
+
+        var bookStack = new BookStack() { Title = title };
+
+        if (!_bookStackRepository.CreateBookStack(bookStack))
+        {                
+            return StatusCode(500);
+        }
+
+        return Ok();
+    }
+
+    //### PATCH ###
+
+    [HttpPatch("update_author/{bookStackId:int}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(500)]
+    public IActionResult AddAuthorToBook([FromRoute] int bookStackId, [FromQuery] int authorId)
+    {
+        var bookStack = _bookStackRepository.GetBookStack(bookStackId);
+
+        if (bookStack == null)
+        {
+            ModelState.AddModelError("Entity", "Book is not found");
+            return NotFound(ModelState);
+        }
+
+        var author = _authorRepository.GetAuthor(authorId);
+
+        if (author == null)
+        {
+            ModelState.AddModelError("Entity", "Author is not found");
+            return NotFound(ModelState);
+        }
+
+        if (!_bookStackRepository.AddAuthor(bookStack, author))
+        {
+            return StatusCode(500);
+        }
+
+        return Ok();
+    }
+
+    [HttpPatch("update_books/{bookStackId:int}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(500)]
+    public IActionResult AddBooks([FromRoute] int bookStackId, int bookAmount)
+    {
+        if (bookAmount <= 0)
+        {
+            ModelState.AddModelError("Entity", "Books amount is required");
+            return BadRequest(ModelState);
+        }
+
+        var bookStack = _bookStackRepository.GetBookStack(bookStackId);
+
+        if (bookStack == null)
+        {
+            ModelState.AddModelError("Entity", "Book is not found");
+            return NotFound(ModelState);
+        }
+
+        if (!_bookStackRepository.AddBooks(bookStack, bookAmount))
+        {
+            return StatusCode(500);
+        }
+
+        return Ok();
+    }
+
+    //### DELETE ###
+
+    [HttpDelete("delete/{bookStackId:int}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public IActionResult RemoveBook([FromRoute] int bookStackId)
+    {
+        var bookStack = _bookStackRepository.GetBookStack(bookStackId);
+
+        if (bookStack == null)
+        {
+            ModelState.AddModelError("Entity", "Book is not found");
+            return NotFound(ModelState);
+        }
+
+        if (!_bookStackRepository.DeleteBookStack(bookStack))
+        {
+            return StatusCode(500);
+        }
+
+        return Ok();
+    }
+
+    [HttpDelete("individual_book/{bookId:int}")]
+    public IActionResult RemoveIndividualBook([FromRoute] int bookId)
+    {
+        var book = _bookRepository.GetBook(bookId);
+
+        if (book == null)
+        {
+            return NotFound();
+        }
+
+        if (!_bookRepository.RemoveBook(book))
+        {
+            return StatusCode(500);
+        }
+
+        return Ok();
     }
 }
